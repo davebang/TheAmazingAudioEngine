@@ -104,6 +104,9 @@ typedef enum {
     AEInputModeFixedAudioFormat,
     AEInputModeVariableAudioFormat
 } AEInputMode;
+    
+#pragma mark - Offline render
+    BOOL AEAudioControllerRenderMainOutput(AEAudioController *audioController, AudioTimeStamp inTimeStamp, UInt32 inNumberFrames, AudioBufferList *ioData);
 
 #pragma mark - Callbacks and protocols
 

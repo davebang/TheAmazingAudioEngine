@@ -281,6 +281,41 @@ typedef struct _channel_group_t {
 @dynamic running, inputGainAvailable, inputGain, audiobusSenderPort, inputAudioDescription, inputChannelSelection;
 
 #pragma mark -
+#pragma mark Offline render
+BOOL AEAudioControllerRenderMainOutput(AEAudioController *audioController, AudioTimeStamp inTimeStamp, UInt32 inNumberFrames, AudioBufferList *ioData) {
+    
+    AudioTimeStamp timestamp = inTimeStamp;
+#if TARGET_OS_IPHONE
+    if ( audioController->_automaticLatencyManagement ) {
+        // Adjust timestamp to factor in hardware output latency
+        timestamp.mHostTime += AEHostTicksFromSeconds(AEAudioControllerOutputLatency(audioController));
+    }
+#endif
+    
+    if ( audioController->_topChannel->timeStamp.mFlags == 0 ) {
+        audioController->_topChannel->timeStamp = timestamp;
+    } else {
+        audioController->_topChannel->timeStamp.mHostTime = timestamp.mHostTime;
+    }
+    
+    channel_producer_arg_t arg = {
+        .channel = audioController->_topChannel,
+        .timeStamp = timestamp,
+        .originalTimeStamp = inTimeStamp,
+        .ioActionFlags = 0,
+        .nextFilterIndex = 0
+    };
+    
+    audioController->_channelBeingRendered = arg.channel;
+    
+    OSStatus result = channelAudioProducer((void*)&arg, ioData, &inNumberFrames);
+    AECheckOSStatus(result, "AEAudioControllerRenderMainOutput");
+    
+    handleCallbacksForChannel(arg.channel, &timestamp, inNumberFrames, ioData);
+    
+    return result;
+}
+
 #pragma mark Input and render callbacks
 
 struct fillComplexBufferInputProc_t { AudioBufferList *bufferList; UInt32 frames; UInt32 bytesPerFrame; };
